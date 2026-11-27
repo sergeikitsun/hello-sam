@@ -1,10 +1,13 @@
 # hello-sam
 
-A simple .NET 8 "hello world" Lambda packaged as an AWS SAM application.
+A simple .NET 8 "hello world" serverless app, deployed as a **single SAM stack**:
 
-The function runs on the `provided.al2023` runtime as a self-contained executable
-(`bootstrap`) using `Amazon.Lambda.RuntimeSupport`, and is exposed through API
-Gateway at `GET /hello?name=…`.
+- A static **frontend** (HTML/CSS/JS) served from **S3** static website hosting.
+- A **.NET 8 Lambda** running on `provided.al2023` as a self-contained
+  executable (`bootstrap`), exposed through **API Gateway** at `GET /hello?name=…`.
+
+The frontend's JavaScript calls the API Gateway endpoint (CORS-enabled) and
+displays the greeting.
 
 ## Prerequisites
 
@@ -117,14 +120,18 @@ above. Because it uses a fixed `RoleName`, deploys need the `CAPABILITY_NAMED_IA
 capability. To let SAM create an auto-named role instead, delete the
 `ExecutionRole` resource and the `Role:` line on the function.
 
-## Test the deployed API
+## Test the deployed app
 
-After deploy, get the endpoint URL and query it:
+After deploy, get the endpoint URLs and query them:
 
 ```bash
 aws cloudformation describe-stacks --stack-name hello-sam \
   --query "Stacks[0].Outputs[?OutputKey=='HelloWorldApi'].OutputValue" --output text
+aws cloudformation describe-stacks --stack-name hello-sam \
+  --query "Stacks[0].Outputs[?OutputKey=='WebsiteUrl'].OutputValue" --output text
 ```
+
+Open the **WebsiteUrl** in a browser (the UI), or query the API directly:
 
 ```bash
 curl "https://<api-id>.execute-api.us-east-1.amazonaws.com/Prod/hello?name=Ada"
@@ -151,9 +158,11 @@ sam delete --stack-name hello-sam --region us-east-1
 ```
 src/HelloWorld/          Lambda function (custom runtime, self-contained bootstrap)
 src/HelloWorld/Makefile  sam build target for dotnet publish
+src/SiteUploader/        Frontend (index.html) + custom-resource Lambda that
+                         uploads it to the S3 bucket during sam deploy
 src/WebFrontend/         Optional Dockerless browser front-end (dev convenience)
 events/event.json        Sample API Gateway proxy event for sam local invoke
-template.yaml            SAM template (function + API Gateway)
+template.yaml            SAM template (S3 + API Gateway + Lambda)
 ```
 
 > `src/WebFrontend` and `scripts/*.sh` are a Dockerless local-development

@@ -19,7 +19,8 @@ public class Function
             StatusCode = 200,
             Headers = new Dictionary<string, string>
             {
-                ["Content-Type"] = "application/json"
+                ["Content-Type"] = "application/json",
+                ["Access-Control-Allow-Origin"] = "*"
             },
             Body = body
         };

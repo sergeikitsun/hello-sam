@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: Simple .NET 8 hello-world Lambda packaged as a SAM application
+Description: .NET 8 hello-world SAM app with a static S3 frontend
 
 Globals:
   Function:
@@ -33,6 +33,25 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource: "*"
+        - PolicyName: SiteBucketAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:GetObject
+                Resource: !Sub "arn:aws:s3:::${SiteBucket}/*"
+
+  HelloApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      Cors:
+        AllowOrigin: "'*'"
+        AllowMethods: "'GET,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
 
   HelloWorldFunction:
     Type: AWS::Serverless::Function
@@ -52,8 +71,58 @@ Resources:
         HelloApi:
           Type: Api
           Properties:
+            RestApiId: !Ref HelloApi
             Path: /hello
             Method: get
+
+  SiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "hello-sam-site-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        IgnorePublicAcls: false
+        BlockPublicPolicy: false
+        RestrictPublicBuckets: false
+      WebsiteConfiguration:
+        IndexDocument: index.html
+
+  SiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SiteBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action: s3:GetObject
+            Resource: !Sub "arn:aws:s3:::${SiteBucket}/*"
+
+  SiteUploaderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: hello-sam-site-uploader
+      Runtime: python3.12
+      Handler: index.handler
+      CodeUri: src/SiteUploader
+      Role: !GetAtt ExecutionRole.Arn
+      Timeout: 30
+
+  SiteUploaderPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref SiteUploaderFunction
+      Principal: cloudformation.amazonaws.com
+      SourceArn: !Ref AWS::StackId
+
+  SiteUploader:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt SiteUploaderFunction.Arn
+      BucketName: !Ref SiteBucket
+      ApiUrl: !Sub "https://${HelloApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
 
 Outputs:
   HelloWorldFunctionArn:
@@ -61,4 +130,7 @@ Outputs:
     Value: !GetAtt HelloWorldFunction.Arn
   HelloWorldApi:
     Description: API Gateway endpoint URL
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello"
+    Value: !Sub "https://${HelloApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello"
+  WebsiteUrl:
+    Description: Static site URL
+    Value: !GetAtt SiteBucket.WebsiteURL
