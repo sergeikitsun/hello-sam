@@ -1,0 +1,14 @@
+{
+  "resource": "/hello",
+  "path": "/hello",
+  "httpMethod": "GET",
+  "queryStringParameters": {
+    "name": "World"
+  },
+  "headers": {
+    "Accept": "application/json"
+  },
+  "requestContext": {
+    "httpMethod": "GET"
+  }
+}

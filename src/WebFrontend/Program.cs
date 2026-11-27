@@ -1,0 +1,223 @@
+using System.Net.Http.Json;
+
+const string IndexHtml = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hello .NET Lambda</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --card: rgba(255, 255, 255, 0.06);
+      --border: rgba(255, 255, 255, 0.12);
+      --text: #e8eefc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent2: #818cf8;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+    body::before, body::after {
+      content: "";
+      position: fixed;
+      width: 55vmax; height: 55vmax;
+      border-radius: 50%;
+      filter: blur(90px);
+      opacity: 0.55;
+      z-index: -1;
+      animation: float 14s ease-in-out infinite;
+    }
+    body::before { background: radial-gradient(circle, #1d4ed8, transparent 60%); top: -20vmax; left: -15vmax; }
+    body::after  { background: radial-gradient(circle, #7c3aed, transparent 60%); bottom: -25vmax; right: -15vmax; animation-delay: -7s; }
+    @keyframes float { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(3vmax,-3vmax,0) scale(1.08); } }
+
+    .card {
+      width: min(560px, calc(100vw - 32px));
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 32px;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: 0 30px 80px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 14px;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #34d399; box-shadow: 0 0 12px #34d399; }
+    h1 {
+      margin: 0 0 6px;
+      font-size: clamp(28px, 5vw, 40px);
+      line-height: 1.1;
+      background: linear-gradient(120deg, #fff 20%, var(--accent) 55%, var(--accent2));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    p.sub { margin: 0 0 26px; color: var(--muted); font-size: 15px; }
+
+    form { display: flex; gap: 10px; }
+    .field { flex: 1; position: relative; }
+    input {
+      width: 100%; padding: 14px 16px; font-size: 16px; color: var(--text);
+      background: rgba(2, 6, 23, 0.6);
+      border: 1px solid var(--border); border-radius: 13px;
+      outline: none; transition: border-color .18s, box-shadow .18s;
+    }
+    input::placeholder { color: #64748b; }
+    input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(56,189,248,0.18); }
+
+    button {
+      padding: 14px 22px; font-size: 15px; font-weight: 600; color: #04121f;
+      background: linear-gradient(120deg, var(--accent), var(--accent2));
+      border: 0; border-radius: 13px; cursor: pointer;
+      transition: transform .12s, box-shadow .18s, filter .18s;
+      box-shadow: 0 10px 24px rgba(56,189,248,0.28);
+      white-space: nowrap;
+    }
+    button:hover { transform: translateY(-1px); filter: brightness(1.06); }
+    button:active { transform: translateY(0); }
+    button:disabled { opacity: .7; cursor: progress; }
+
+    .result {
+      margin-top: 26px; padding: 22px; border-radius: 16px;
+      background: rgba(2, 6, 23, 0.55);
+      border: 1px solid var(--border);
+      opacity: 0; transform: translateY(8px);
+      transition: opacity .3s ease, transform .3s ease;
+    }
+    .result.show { opacity: 1; transform: translateY(0); }
+    .result .label { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+    #msg {
+      margin: 8px 0 12px; font-size: clamp(22px, 4vw, 30px); font-weight: 700;
+      background: linear-gradient(120deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      word-break: break-word;
+    }
+    .meta { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+    #raw {
+      display: block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12.5px; color: #a5b4fc; background: rgba(0,0,0,0.35);
+      padding: 10px 12px; border-radius: 10px; overflow-x: auto; white-space: pre;
+    }
+    footer { margin-top: 22px; font-size: 12px; color: #64748b; text-align: center; }
+    code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 6px; color: #cbd5e1; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="eyebrow"><span class="dot"></span> AWS SAM · .NET 8 · local</div>
+    <h1>Hello, Lambda</h1>
+    <p class="sub">Invoke the local .NET function through the Runtime Interface Emulator.</p>
+
+    <form id="f" autocomplete="off">
+      <div class="field">
+        <input id="name" name="name" value="World" placeholder="Enter a name…" autofocus>
+      </div>
+      <button id="btn" type="submit">Invoke</button>
+    </form>
+
+    <section id="out" class="result" aria-live="polite">
+      <div class="label">Response</div>
+      <div id="msg">—</div>
+      <div class="meta"><span id="status"></span><span id="time"></span></div>
+      <code id="raw"></code>
+    </section>
+
+    <footer>GET <code>/hello?name=…</code> → ASP.NET Core → RIE → .NET Lambda</footer>
+  </main>
+
+  <script>
+    const form = document.getElementById('f');
+    const input = document.getElementById('name');
+    const btn = document.getElementById('btn');
+    const out = document.getElementById('out');
+    const msg = document.getElementById('msg');
+    const raw = document.getElementById('raw');
+    const statusEl = document.getElementById('status');
+    const timeEl = document.getElementById('time');
+
+    async function invoke(name) {
+      btn.disabled = true;
+      const t0 = performance.now();
+      try {
+        const r = await fetch('/hello?name=' + encodeURIComponent(name), { headers: { 'Accept': 'application/json' } });
+        const data = await r.json();
+        msg.textContent = data.Message ?? JSON.stringify(data);
+        raw.textContent = JSON.stringify(data);
+        statusEl.textContent = 'HTTP ' + r.status;
+        timeEl.textContent = Math.round(performance.now() - t0) + ' ms';
+      } catch (e) {
+        msg.textContent = 'Invoke failed';
+        raw.textContent = String(e);
+        statusEl.textContent = '';
+        timeEl.textContent = '';
+      } finally {
+        btn.disabled = false;
+        out.classList.remove('show');
+        void out.offsetWidth;
+        out.classList.add('show');
+      }
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      invoke((input.value || 'World').trim());
+    });
+
+    invoke('World');
+  </script>
+</body>
+</html>
+""";
+
+var builder = WebApplication.CreateBuilder(args);
+
+var port = Environment.GetEnvironmentVariable("PORT") ?? "3000";
+builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+
+var rieUrl = Environment.GetEnvironmentVariable("RIE_URL")
+    ?? "http://127.0.0.1:8080/2015-03-31/functions/function/invocations";
+
+builder.Services.AddHttpClient("rie", c => c.Timeout = TimeSpan.FromSeconds(30));
+
+var app = builder.Build();
+
+app.MapGet("/", () => Results.Content(IndexHtml, "text/html; charset=utf-8"));
+
+app.MapGet("/hello", async (string? name, IHttpClientFactory factory) =>
+{
+    name = string.IsNullOrWhiteSpace(name) ? "World" : name;
+    var client = factory.CreateClient("rie");
+
+    try
+    {
+        var resp = await client.PostAsJsonAsync(rieUrl, new { name });
+        var payload = await resp.Content.ReadAsStringAsync();
+
+        if (!resp.IsSuccessStatusCode)
+        {
+            return Results.Json(new { Error = $"Lambda returned {(int)resp.StatusCode}", Detail = payload },
+                statusCode: 502);
+        }
+
+        return Results.Content(payload, "application/json");
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { Error = "Lambda invoke failed", Detail = ex.Message }, statusCode: 502);
+    }
+});
+
+app.Run();

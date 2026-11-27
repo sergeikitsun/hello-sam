@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>bootstrap</AssemblyName>
+    <RootNamespace>HelloWorld</RootNamespace>
+    <AWSProjectType>Lambda</AWSProjectType>
+    <!-- The provided.al2023 runtime image does not include libicu, and a
+         self-contained publish does not bundle it. Use invariant globalization
+         so the runtime doesn't fail-fast looking for ICU. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Amazon.Lambda.APIGatewayEvents" Version="2.7.1" />
+    <PackageReference Include="Amazon.Lambda.Core" Version="3.4.0" />
+    <PackageReference Include="Amazon.Lambda.RuntimeSupport" Version="2.3.1" />
+    <PackageReference Include="Amazon.Lambda.Serialization.SystemTextJson" Version="3.0.1" />
+  </ItemGroup>
+
+</Project>

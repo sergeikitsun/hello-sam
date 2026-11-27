@@ -1,0 +1,64 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Simple .NET 8 hello-world Lambda packaged as a SAM application
+
+Globals:
+  Function:
+    Timeout: 10
+    MemorySize: 256
+    Architectures:
+      - x86_64
+
+Resources:
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      # Fixed name so the account's IAM policy allows iam:PassRole on it.
+      RoleName: EC2LabRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaBasicExecution
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+  HelloWorldFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      # provided.al2023 has no native SAM build method, so we drive
+      # `dotnet publish` via a Makefile (see src/HelloWorld/Makefile).
+      BuildMethod: makefile
+    Properties:
+      FunctionName: hello-world-dotnet
+      # provided.al2023 + a self-contained executable is the recommended way to
+      # ship .NET Lambda functions (the runtime client is baked into the binary).
+      Runtime: provided.al2023
+      Handler: bootstrap
+      CodeUri: src/HelloWorld
+      Role: !GetAtt ExecutionRole.Arn
+      Events:
+        HelloApi:
+          Type: Api
+          Properties:
+            Path: /hello
+            Method: get
+
+Outputs:
+  HelloWorldFunctionArn:
+    Description: ARN of the Lambda function
+    Value: !GetAtt HelloWorldFunction.Arn
+  HelloWorldApi:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello"

@@ -1,0 +1,18 @@
+# Build artifacts
+bin/
+obj/
+publish/
+.aws-sam/
+
+# Local dev runtime files
+aws-lambda-rie
+*.log
+*.pid
+
+# dotnet
+*.user
+.vs/
+.idea/
+
+# OS
+.DS_Store
